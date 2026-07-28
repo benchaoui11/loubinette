@@ -1,7 +1,16 @@
-import { UnavailablePage } from "@/components/shared/unavailable-page";
+import { SendTestEmailButton } from "@/components/settings/send-test-email-button";
 
 export const metadata = { title: "Settings" };
 
 export default function SettingsPage() {
-  return <UnavailablePage eyebrow="Settings" title="Central settings" body="Site settings will expose feature flags and configuration status without exposing raw secrets. Editing is disabled in the read-only milestone." />;
+  return (
+    <div className="space-y-5">
+      <div>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-blue-200/70">Settings</p>
+        <h1 className="text-3xl font-semibold tracking-tight text-white">Central settings</h1>
+        <p className="mt-2 max-w-2xl text-sm text-slate-400">Admin diagnostics and configuration checks. Existing email flows are unchanged.</p>
+      </div>
+      <SendTestEmailButton />
+    </div>
+  );
 }
