@@ -7,6 +7,7 @@ type TestEmailResponse = {
   ok?: boolean;
   error?: string;
   details?: string;
+  sender?: string;
 };
 
 export function SendTestEmailButton() {
@@ -30,7 +31,7 @@ export function SendTestEmailButton() {
         throw new Error([payload.error, payload.details].filter(Boolean).join(" ") || "The test email could not be sent.");
       }
 
-      setMessage("Test email sent to the owner admin email.");
+      setMessage(`Test email sent to the owner admin email from ${payload.sender ?? "the configured sender"}.`);
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : "The test email could not be sent.");
     } finally {

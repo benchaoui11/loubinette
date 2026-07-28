@@ -7,7 +7,7 @@ import { getServerEnv } from "@/lib/validation/env";
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
 const TEST_EMAIL_SUBJECT = "Control Center Test Email";
 const TEST_EMAIL_BODY = "This is a successful test from the Loubinette Control Center.";
-const DEFAULT_FROM_EMAIL = "Loubinette Control Center <onboarding@resend.dev>";
+const FALLBACK_FROM_EMAIL = "contact@firstidp.com";
 
 type ResendErrorPayload = {
   message?: unknown;
@@ -18,17 +18,18 @@ type ResendErrorPayload = {
 export async function POST() {
   const env = getServerEnv();
   const admin = await getCurrentAdmin();
+  const sender = resolveSender(env.RESEND_FROM_EMAIL);
 
   if (!admin) {
-    return NextResponse.json({ error: "Not authorized to send test emails." }, { status: 403, headers: NO_STORE_HEADERS });
+    return NextResponse.json({ error: "Not authorized to send test emails.", sender }, { status: 403, headers: NO_STORE_HEADERS });
   }
 
   if (!env.OWNER_ADMIN_EMAIL) {
-    return NextResponse.json({ error: "OWNER_ADMIN_EMAIL is not configured." }, { status: 500, headers: NO_STORE_HEADERS });
+    return NextResponse.json({ error: "OWNER_ADMIN_EMAIL is not configured.", sender }, { status: 500, headers: NO_STORE_HEADERS });
   }
 
   if (!env.RESEND_API_KEY) {
-    return NextResponse.json({ error: "RESEND_API_KEY is not configured." }, { status: 500, headers: NO_STORE_HEADERS });
+    return NextResponse.json({ error: "RESEND_API_KEY is not configured.", sender }, { status: 500, headers: NO_STORE_HEADERS });
   }
 
   try {
@@ -39,7 +40,7 @@ export async function POST() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: env.RESEND_FROM_EMAIL ?? DEFAULT_FROM_EMAIL,
+        from: sender,
         to: [env.OWNER_ADMIN_EMAIL],
         subject: TEST_EMAIL_SUBJECT,
         text: TEST_EMAIL_BODY,
@@ -54,17 +55,19 @@ export async function POST() {
         {
           error: "Resend rejected the test email.",
           details: resendErrorDetails(response.status, payload),
+          sender,
         },
         { status: 502, headers: NO_STORE_HEADERS },
       );
     }
 
-    return NextResponse.json({ ok: true }, { status: 200, headers: NO_STORE_HEADERS });
+    return NextResponse.json({ ok: true, sender }, { status: 200, headers: NO_STORE_HEADERS });
   } catch (error) {
     return NextResponse.json(
       {
         error: "Test email could not be sent.",
         details: error instanceof Error ? error.message : "Unexpected email delivery error.",
+        sender,
       },
       { status: 502, headers: NO_STORE_HEADERS },
     );
@@ -80,4 +83,8 @@ function resendErrorDetails(status: number, payload: ResendErrorPayload | { id?:
 
 function textValue(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function resolveSender(configuredSender?: string) {
+  return configuredSender?.trim() || FALLBACK_FROM_EMAIL;
 }
