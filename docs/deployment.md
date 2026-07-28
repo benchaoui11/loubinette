@@ -13,6 +13,7 @@ Required environment variables:
 Prepared future variables:
 
 - `RESEND_API_KEY`
+- `RESEND_FROM_EMAIL` - verified sender address, falls back to `contact@firstidp.com`
 - `RESEND_WEBHOOK_SECRET`
 - `ANALYTICS_INGEST_SECRET`
 - `INTERNAL_TRAFFIC_SECRET`
