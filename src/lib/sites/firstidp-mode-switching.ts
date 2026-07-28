@@ -1,11 +1,13 @@
-export const FIRSTIDP_SWITCHABLE_SITE_ID = "firstidp";
-export const FIRSTIDP_SITE_SETTINGS_ROW_ID = 1;
+import { FIRSTIDP_SITE_UUID } from "@/lib/sites/site-config";
+
+export const FIRSTIDP_SWITCHABLE_SITE_ID = FIRSTIDP_SITE_UUID;
 
 export const FIRSTIDP_MODES = ["offer", "white"] as const;
 
 export type FirstIdpMode = (typeof FIRSTIDP_MODES)[number];
 
 export type FirstIdpModeRecord = {
+  site_id: string;
   mode: FirstIdpMode;
   updated_at: string | null;
   updated_by: string | null;
@@ -25,8 +27,8 @@ export type FirstIdpModeResult = {
 export type FirstIdpModeDependencies = {
   ownerAdminEmail?: string;
   getSessionUser: () => Promise<{ id: string; email: string | null } | null>;
-  readCurrentMode: () => Promise<FirstIdpModeRecord | null>;
-  updateMode: (mode: FirstIdpMode, updatedBy: string) => Promise<FirstIdpModeRecord | null>;
+  readCurrentMode: (siteId: string) => Promise<FirstIdpModeRecord | null>;
+  updateMode: (siteId: string, mode: FirstIdpMode, updatedBy: string) => Promise<FirstIdpModeRecord | null>;
 };
 
 type AuthResult =
@@ -82,7 +84,7 @@ export async function resolveFirstIdpModeRead(
   const auth = await authorize(input.siteId, deps);
   if (!auth.ok) return auth.result;
 
-  const record = await deps.readCurrentMode();
+  const record = await deps.readCurrentMode(input.siteId);
   if (!record) {
     return safe(404, "FirstIDP page mode was not found.");
   }
@@ -101,16 +103,12 @@ export async function resolveFirstIdpModeSwitch(
     return safe(400, "Invalid mode. Use offer or white.");
   }
 
-  const current = await deps.readCurrentMode();
-  if (!current) {
-    return safe(404, "FirstIDP page mode was not found.");
-  }
-
-  if (current.mode === input.mode) {
+  const current = await deps.readCurrentMode(input.siteId);
+  if (current?.mode === input.mode) {
     return success(current, false);
   }
 
-  const updated = await deps.updateMode(input.mode, auth.userEmail);
+  const updated = await deps.updateMode(input.siteId, input.mode, auth.userEmail);
   if (!updated) {
     return safe(502, "Could not update FirstIDP page mode.");
   }

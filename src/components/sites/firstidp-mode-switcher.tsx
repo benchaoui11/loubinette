@@ -3,6 +3,7 @@
 import { Loader2, RefreshCw, ToggleLeft } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { FirstIdpMode } from "@/lib/sites/firstidp-mode-switching";
+import { FIRSTIDP_SITE_UUID } from "@/lib/sites/site-config";
 
 type ModePayload = {
   mode?: FirstIdpMode;
@@ -53,7 +54,7 @@ export function FirstIdpModeSwitcher() {
     setState((current) => ({ ...current, loading: true, error: null }));
 
     try {
-      const response = await fetch("/api/sites/firstidp/mode", {
+      const response = await fetch(`/api/sites/${FIRSTIDP_SITE_UUID}/mode`, {
         method: "GET",
         cache: "no-store",
       });
@@ -94,7 +95,7 @@ export function FirstIdpModeSwitcher() {
     setState((current) => ({ ...current, changing: mode, message: null, error: null }));
 
     try {
-      const response = await fetch("/api/sites/firstidp/mode", {
+      const response = await fetch(`/api/sites/${FIRSTIDP_SITE_UUID}/mode`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode }),

@@ -2,7 +2,6 @@ import "server-only";
 
 import { NextRequest, NextResponse } from "next/server";
 import {
-  FIRSTIDP_SITE_SETTINGS_ROW_ID,
   isFirstIdpMode,
   resolveFirstIdpModeRead,
   resolveFirstIdpModeSwitch,
@@ -45,15 +44,15 @@ async function createDependencies(): Promise<FirstIdpModeDependencies> {
       if (error || !user) return null;
       return { id: user.id, email: user.email ?? null };
     },
-    async readCurrentMode() {
+    async readCurrentMode(siteId: string) {
       if (!adminClient) {
         throw new Error("Supabase admin client is not configured.");
       }
 
       const { data, error } = await adminClient
         .from("site_settings")
-        .select("mode, updated_at, updated_by")
-        .eq("id", FIRSTIDP_SITE_SETTINGS_ROW_ID)
+        .select("site_id, mode, updated_at, updated_by")
+        .eq("site_id", siteId)
         .maybeSingle();
 
       if (error) {
@@ -62,20 +61,20 @@ async function createDependencies(): Promise<FirstIdpModeDependencies> {
 
       return normalizeModeRecord(data);
     },
-    async updateMode(mode: FirstIdpMode, updatedBy: string) {
+    async updateMode(siteId: string, mode: FirstIdpMode, updatedBy: string) {
       if (!adminClient) {
         throw new Error("Supabase admin client is not configured.");
       }
 
       const { data, error } = await adminClient
         .from("site_settings")
-        .update({
+        .upsert({
+          site_id: siteId,
           mode,
           updated_at: new Date().toISOString(),
           updated_by: updatedBy,
-        })
-        .eq("id", FIRSTIDP_SITE_SETTINGS_ROW_ID)
-        .select("mode, updated_at, updated_by")
+        }, { onConflict: "site_id" })
+        .select("site_id, mode, updated_at, updated_by")
         .maybeSingle();
 
       if (error) {
@@ -89,10 +88,12 @@ async function createDependencies(): Promise<FirstIdpModeDependencies> {
 
 function normalizeModeRecord(data: unknown): FirstIdpModeRecord | null {
   if (!data || typeof data !== "object") return null;
-  const record = data as { mode?: unknown; updated_at?: unknown; updated_by?: unknown };
+  const record = data as { site_id?: unknown; mode?: unknown; updated_at?: unknown; updated_by?: unknown };
+  if (typeof record.site_id !== "string") return null;
   if (!isFirstIdpMode(record.mode)) return null;
 
   return {
+    site_id: record.site_id,
     mode: record.mode,
     updated_at: typeof record.updated_at === "string" ? record.updated_at : null,
     updated_by: typeof record.updated_by === "string" ? record.updated_by : null,

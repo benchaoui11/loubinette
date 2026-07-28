@@ -7,6 +7,7 @@ import {
   type FirstIdpModeDependencies,
   type FirstIdpModeRecord,
 } from "@/lib/sites/firstidp-mode-switching";
+import { FIRSTIDP_SITE_UUID } from "@/lib/sites/site-config";
 
 const OWNER_EMAIL = "owner@example.com";
 
@@ -14,8 +15,8 @@ function deps(overrides: Partial<FirstIdpModeDependencies> = {}): FirstIdpModeDe
   return {
     ownerAdminEmail: OWNER_EMAIL,
     getSessionUser: async () => ({ id: "owner-user", email: OWNER_EMAIL }),
-    readCurrentMode: async () => ({ mode: "offer", updated_at: null, updated_by: null }),
-    updateMode: async (mode, updatedBy) => ({ mode, updated_at: "2026-07-28T09:00:00.000Z", updated_by: updatedBy }),
+    readCurrentMode: async (siteId) => ({ site_id: siteId, mode: "offer", updated_at: null, updated_by: null }),
+    updateMode: async (siteId, mode, updatedBy) => ({ site_id: siteId, mode, updated_at: "2026-07-28T09:00:00.000Z", updated_by: updatedBy }),
     ...overrides,
   };
 }
@@ -23,7 +24,7 @@ function deps(overrides: Partial<FirstIdpModeDependencies> = {}): FirstIdpModeDe
 describe("FirstIDP mode switching security", () => {
   it("rejects unauthenticated requests", async () => {
     const result = await resolveFirstIdpModeSwitch(
-      { siteId: "firstidp", mode: "white" },
+      { siteId: FIRSTIDP_SITE_UUID, mode: "white" },
       deps({ getSessionUser: async () => null }),
     );
 
@@ -33,7 +34,7 @@ describe("FirstIDP mode switching security", () => {
 
   it("rejects authenticated users who are not the owner admin email", async () => {
     const result = await resolveFirstIdpModeSwitch(
-      { siteId: "firstidp", mode: "white" },
+      { siteId: FIRSTIDP_SITE_UUID, mode: "white" },
       deps({ getSessionUser: async () => ({ id: "other-user", email: "other@example.com" }) }),
     );
 
@@ -44,7 +45,7 @@ describe("FirstIDP mode switching security", () => {
   it("rejects invalid modes before updating", async () => {
     let updated = false;
     const result = await resolveFirstIdpModeSwitch(
-      { siteId: "firstidp", mode: "maintenance" },
+      { siteId: FIRSTIDP_SITE_UUID, mode: "maintenance" },
       deps({
         updateMode: async () => {
           updated = true;
@@ -62,7 +63,7 @@ describe("FirstIDP mode switching security", () => {
     let read = false;
     let updated = false;
     const result = await resolveFirstIdpModeSwitch(
-      { siteId: "worldidp", mode: "white" },
+      { siteId: "f1f5c0de-0002-4b44-8a1d-000000000002", mode: "white" },
       deps({
         readCurrentMode: async () => {
           read = true;
@@ -85,12 +86,12 @@ describe("FirstIDP mode switching security", () => {
     let updatedMode: FirstIdpMode | null = null;
     let updatedBy = "";
     const result = await resolveFirstIdpModeSwitch(
-      { siteId: "firstidp", mode: "white" },
+      { siteId: FIRSTIDP_SITE_UUID, mode: "white" },
       deps({
-        updateMode: async (mode, userEmail): Promise<FirstIdpModeRecord> => {
+        updateMode: async (siteId, mode, userEmail): Promise<FirstIdpModeRecord> => {
           updatedMode = mode;
           updatedBy = userEmail;
-          return { mode, updated_at: "2026-07-28T09:00:00.000Z", updated_by: userEmail };
+          return { site_id: siteId, mode, updated_at: "2026-07-28T09:00:00.000Z", updated_by: userEmail };
         },
       }),
     );
@@ -100,6 +101,25 @@ describe("FirstIDP mode switching security", () => {
     expect(result.body.changed).toBe(true);
     expect(updatedMode).toBe("white");
     expect(updatedBy).toBe(OWNER_EMAIL);
+  });
+
+  it("creates the FirstIDP site settings row when it does not exist", async () => {
+    let upsertedSiteId = "";
+    const result = await resolveFirstIdpModeSwitch(
+      { siteId: FIRSTIDP_SITE_UUID, mode: "white" },
+      deps({
+        readCurrentMode: async () => null,
+        updateMode: async (siteId, mode, userEmail): Promise<FirstIdpModeRecord> => {
+          upsertedSiteId = siteId;
+          return { site_id: siteId, mode, updated_at: "2026-07-28T09:00:00.000Z", updated_by: userEmail };
+        },
+      }),
+    );
+
+    expect(result.status).toBe(200);
+    expect(result.body.mode).toBe("white");
+    expect(result.body.changed).toBe(true);
+    expect(upsertedSiteId).toBe(FIRSTIDP_SITE_UUID);
   });
 });
 
