@@ -16,6 +16,16 @@ const DOCUMENT_FIELDS: { type: DocumentFileField; label: string }[] = [
   { type: "file_signature", label: "Signature" },
 ];
 
+const APPLICATION_SELECT_WITH_SITE_ID = "id, site_id, ref, order_number, status, format, validity_years, destination_country, total, currency, first_name, last_name, email, phone, group_ref, is_companion, file_selfie, file_license_front, file_license_back, file_signature, created_at";
+const APPLICATION_SELECT_LEGACY = "id, ref, order_number, status, format, validity_years, destination_country, total, currency, first_name, last_name, email, phone, group_ref, is_companion, file_selfie, file_license_front, file_license_back, file_signature, created_at";
+const VISITOR_SELECT_WITH_SITE_ID = "id, site_id, created_at, session_id, site_mode_at_visit, country, browser, os, device, referrer, landing_page";
+const VISITOR_SELECT_LEGACY = "id, created_at, session_id, site_mode_at_visit, country, browser, os, device, referrer, landing_page";
+
+type ReadResult = {
+  data: unknown[] | null;
+  error: { message?: string } | null;
+};
+
 function emptyDashboardData(range: ReturnType<typeof getDateRange>, error?: string): ReadOnlyDashboardData {
   return {
     site: FIRST_IDP_SITE,
@@ -36,6 +46,7 @@ function emptyDashboardData(range: ReturnType<typeof getDateRange>, error?: stri
 function normalizeApplication(row: Record<string, unknown>): FirstIdpApplication {
   return {
     id: typeof row.id === "string" ? row.id : undefined,
+    site_id: stringOrNull(row.site_id),
     ref: stringOrNull(row.ref),
     order_number: numberOrNull(row.order_number),
     status: stringOrNull(row.status),
@@ -61,6 +72,7 @@ function normalizeApplication(row: Record<string, unknown>): FirstIdpApplication
 function normalizeVisitor(row: Record<string, unknown>): VisitorRecord {
   return {
     id: numberOrNull(row.id) ?? undefined,
+    site_id: stringOrNull(row.site_id),
     created_at: stringOrNull(row.created_at),
     session_id: stringOrNull(row.session_id),
     site_mode_at_visit: stringOrNull(row.site_mode_at_visit),
@@ -83,6 +95,10 @@ function numberOrNull(value: unknown) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function isMissingSiteIdColumn(error: { message?: string } | null | undefined) {
+  return Boolean(error?.message && /site_id/i.test(error.message));
+}
+
 export async function getReadOnlyDashboardData(preset: DateRangePreset = "last_30_days", siteId?: string | null): Promise<ReadOnlyDashboardData> {
   const range = getDateRange(preset);
   const dataSource = getConnectedDataSource(siteId);
@@ -101,18 +117,40 @@ export async function getReadOnlyDashboardData(preset: DateRangePreset = "last_3
     return emptyDashboardData(range, "Supabase server credentials are not configured. Add environment variables to connect real IDP data.");
   }
 
-  const [applicationsResult, visitorsResult] = await Promise.all([
-    supabase
+  const supabaseClient = supabase;
+
+  async function readApplications(select: string): Promise<ReadResult> {
+    const result = await supabaseClient
       .from("applications")
-      .select("id, ref, order_number, status, format, validity_years, destination_country, total, currency, first_name, last_name, email, phone, group_ref, is_companion, file_selfie, file_license_front, file_license_back, file_signature, created_at")
+      .select(select)
       .order("created_at", { ascending: false })
-      .limit(100),
-    supabase
+      .limit(100);
+
+    return result as ReadResult;
+  }
+
+  async function readVisitors(select: string): Promise<ReadResult> {
+    const result = await supabaseClient
       .from("visitors")
-      .select("id, created_at, session_id, site_mode_at_visit, country, browser, os, device, referrer, landing_page")
+      .select(select)
       .order("created_at", { ascending: false })
-      .limit(300),
+      .limit(300);
+
+    return result as ReadResult;
+  }
+
+  let [applicationsResult, visitorsResult] = await Promise.all([
+    readApplications(APPLICATION_SELECT_WITH_SITE_ID),
+    readVisitors(VISITOR_SELECT_WITH_SITE_ID),
   ]);
+
+  if (isMissingSiteIdColumn(applicationsResult.error)) {
+    applicationsResult = await readApplications(APPLICATION_SELECT_LEGACY);
+  }
+
+  if (isMissingSiteIdColumn(visitorsResult.error)) {
+    visitorsResult = await readVisitors(VISITOR_SELECT_LEGACY);
+  }
 
   if (applicationsResult.error) {
     return emptyDashboardData(range, applicationsResult.error.message);

@@ -34,6 +34,7 @@ export type ApplicationStatus =
 
 export type FirstIdpApplication = {
   id?: string;
+  site_id?: string | null;
   ref: string | null;
   order_number: number | null;
   status: ApplicationStatus | null;
@@ -57,6 +58,7 @@ export type FirstIdpApplication = {
 
 export type VisitorRecord = {
   id?: number;
+  site_id?: string | null;
   created_at: string | null;
   session_id: string | null;
   site_mode_at_visit: string | null;

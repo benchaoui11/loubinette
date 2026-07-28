@@ -165,24 +165,25 @@ create unique index if not exists sites_slug_key on public.sites (slug);
 create unique index if not exists sites_domain_key on public.sites (domain);
 
 create temporary table idp_site_seed (
+  id uuid not null,
   slug text primary key,
   name text not null,
   domain text not null,
   status text not null
 ) on commit drop;
 
-insert into idp_site_seed (slug, name, domain, status)
+insert into idp_site_seed (id, slug, name, domain, status)
 values
-  ('firstidp', 'FirstIDP', 'firstidp.com', 'live'),
-  ('worldidp', 'WorldIDP', 'worldidp.com', 'live'),
-  ('applyinternationaldrivingpermit', 'Apply International Driving Permit', 'applyinternationaldrivingpermit.com', 'planned'),
-  ('international-auto-association', 'International Auto Association', 'international-auto-association.com', 'planned'),
-  ('internationaldriversdocument', 'International Drivers Document', 'internationaldriversdocument.com', 'planned'),
-  ('international-driving-document', 'International Driving Document', 'international-driving-document.com', 'planned'),
-  ('international-idp', 'International IDP', 'international-idp.com', 'planned'),
-  ('international-license', 'International License', 'international-license.net', 'planned'),
-  ('applyidponline', 'Apply IDP Online', 'applyidponline.com', 'planned'),
-  ('getidponline', 'Get IDP Online', 'getidponline.com', 'planned');
+  ('f1f5c0de-0001-4b44-8a1d-000000000001', 'firstidp', 'FirstIDP', 'firstidp.com', 'live'),
+  ('f1f5c0de-0002-4b44-8a1d-000000000002', 'worldidp', 'WorldIDP', 'worldidp.com', 'live'),
+  ('f1f5c0de-0003-4b44-8a1d-000000000003', 'applyinternationaldrivingpermit', 'Apply International Driving Permit', 'applyinternationaldrivingpermit.com', 'planned'),
+  ('f1f5c0de-0004-4b44-8a1d-000000000004', 'international-auto-association', 'International Auto Association', 'international-auto-association.com', 'planned'),
+  ('f1f5c0de-0005-4b44-8a1d-000000000005', 'internationaldriversdocument', 'International Drivers Document', 'internationaldriversdocument.com', 'planned'),
+  ('f1f5c0de-0006-4b44-8a1d-000000000006', 'international-driving-document', 'International Driving Document', 'international-driving-document.com', 'planned'),
+  ('f1f5c0de-0007-4b44-8a1d-000000000007', 'international-idp', 'International IDP', 'international-idp.com', 'planned'),
+  ('f1f5c0de-0008-4b44-8a1d-000000000008', 'international-license', 'International License', 'international-license.net', 'planned'),
+  ('f1f5c0de-0009-4b44-8a1d-000000000009', 'applyidponline', 'Apply IDP Online', 'applyidponline.com', 'planned'),
+  ('f1f5c0de-0010-4b44-8a1d-000000000010', 'getidponline', 'Get IDP Online', 'getidponline.com', 'planned');
 
 do $$
 begin
@@ -193,8 +194,8 @@ begin
       and table_name = 'sites'
       and column_name = 'site_key'
   ) then
-    insert into public.sites (site_key, slug, name, domain, status)
-    select slug, slug, name, domain, status
+    insert into public.sites (id, site_key, slug, name, domain, status)
+    select id, slug, slug, name, domain, status
     from idp_site_seed
     on conflict (slug) do update set
       site_key = excluded.site_key,
@@ -203,8 +204,8 @@ begin
       status = excluded.status,
       updated_at = now();
   else
-    insert into public.sites (slug, name, domain, status)
-    select slug, name, domain, status
+    insert into public.sites (id, slug, name, domain, status)
+    select id, slug, name, domain, status
     from idp_site_seed
     on conflict (slug) do update set
       name = excluded.name,

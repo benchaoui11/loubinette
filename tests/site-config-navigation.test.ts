@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  FIRSTIDP_SITE_UUID,
   getConnectedDataSource,
   getEnabledFeatureLabels,
   getSelectedSites,
@@ -52,6 +53,12 @@ describe("site configuration", () => {
         expect(typeof site[feature], `${site.site_id}.${feature}`).toBe("boolean");
       }
       expect(validateSiteFeatureConfig(site), site.site_id).toBe(true);
+    }
+
+    const firstidp = SITE_CONFIGS.find((site) => site.site_id === "firstidp");
+    expect(firstidp?.attribution).toEqual({ field: "site_id", value: FIRSTIDP_SITE_UUID });
+
+    for (const site of SITE_CONFIGS.filter((entry) => entry.site_id !== "firstidp")) {
       expect(site.attribution, `${site.site_id}.attribution`).toBeNull();
     }
   });
