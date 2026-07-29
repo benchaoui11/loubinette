@@ -1,6 +1,7 @@
 import { DocumentMetadataTable } from "@/components/documents/document-metadata-table";
 import { EmptyState } from "@/components/shared/empty-state";
 import { UnavailablePanel } from "@/components/analytics/unavailable-panel";
+import { readSelectedDateRange } from "@/lib/analytics/date-ranges";
 import { getReadOnlyDashboardData } from "@/lib/database/firstidp-readonly";
 import { readSelectedSiteId } from "@/lib/sites/site-config";
 
@@ -8,7 +9,8 @@ export const metadata = { title: "Documents" };
 
 export default async function DocumentsPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const siteId = await readSelectedSiteId(searchParams);
-  const data = await getReadOnlyDashboardData("last_30_days", siteId);
+  const range = await readSelectedDateRange(searchParams);
+  const data = await getReadOnlyDashboardData(range, siteId);
   return (
     <div className="space-y-5">
       <div>

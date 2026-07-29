@@ -29,6 +29,7 @@ export type ApplicationStatus =
   | "paid"
   | "processing"
   | "delivered"
+  | "cancelled"
   | "rejected"
   | string;
 
@@ -47,6 +48,7 @@ export type FirstIdpApplication = {
   last_name: string | null;
   email: string | null;
   phone: string | null;
+  vip_processing?: boolean | null;
   group_ref: string | null;
   is_companion: boolean | null;
   file_selfie: string | null;

@@ -1,15 +1,17 @@
 export type DateRangePreset =
   | "today"
-  | "yesterday"
   | "last_7_days"
   | "last_30_days"
-  | "this_month"
-  | "previous_month"
   | "last_90_days"
-  | "year_to_date";
+  | "this_month"
+  | "previous_month";
+
+export type DateRangeSelection =
+  | { preset: DateRangePreset }
+  | { preset: "custom"; from: string; to: string };
 
 export type DateRange = {
-  preset: DateRangePreset;
+  preset: DateRangePreset | "custom";
   from: Date;
   to: Date;
   previousFrom: Date;
@@ -38,7 +40,13 @@ function endOfMonth(date: Date) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0, 23, 59, 59, 999));
 }
 
-function withPrevious(preset: DateRangePreset, from: Date, to: Date, label: string): DateRange {
+function parseDateOnly(value: string | null | undefined) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function withPrevious(preset: DateRangePreset | "custom", from: Date, to: Date, label: string): DateRange {
   const span = to.getTime() - from.getTime() + 1;
   return {
     preset,
@@ -55,12 +63,6 @@ export function getDateRange(preset: DateRangePreset = "last_30_days", now = new
 
   if (preset === "today") return withPrevious(preset, today, endOfDay(today), "Today");
 
-  if (preset === "yesterday") {
-    const y = new Date(today);
-    y.setDate(y.getDate() - 1);
-    return withPrevious(preset, y, endOfDay(y), "Yesterday");
-  }
-
   if (preset === "this_month") {
     return withPrevious(preset, startOfMonth(now), endOfDay(now), "This month");
   }
@@ -76,13 +78,42 @@ export function getDateRange(preset: DateRangePreset = "last_30_days", now = new
     return withPrevious(preset, from, endOfDay(today), "Last 90 days");
   }
 
-  if (preset === "year_to_date") {
-    return withPrevious(preset, new Date(Date.UTC(now.getUTCFullYear(), 0, 1)), endOfDay(today), "Year to date");
-  }
-
   const days = preset === "last_7_days" ? 7 : 30;
   const from = new Date(today.getTime() - (days - 1) * DAY_MS);
   return withPrevious(preset, from, endOfDay(today), days === 7 ? "Last 7 days" : "Last 30 days");
+}
+
+export function getCustomDateRange(fromValue: string | null | undefined, toValue: string | null | undefined, now = new Date()): DateRange {
+  const fallback = getDateRange("last_30_days", now);
+  const from = parseDateOnly(fromValue);
+  const to = parseDateOnly(toValue);
+  if (!from || !to) return fallback;
+
+  const start = startOfDay(from <= to ? from : to);
+  const end = endOfDay(from <= to ? to : from);
+  return withPrevious("custom", start, end, `${dayKey(start)} to ${dayKey(end)}`);
+}
+
+export function getDateRangeFromSelection(selection?: DateRangeSelection | null, now = new Date()) {
+  if (!selection) return getDateRange("last_30_days", now);
+  if (selection.preset === "custom") return getCustomDateRange(selection.from, selection.to, now);
+  return getDateRange(selection.preset, now);
+}
+
+export async function readSelectedDateRange(searchParams?: Promise<Record<string, string | string[] | undefined>>) {
+  const params = searchParams ? await searchParams : {};
+  const rawRange = valueOf(params.range);
+  const from = valueOf(params.from);
+  const to = valueOf(params.to);
+  const presets: DateRangePreset[] = ["today", "last_7_days", "last_30_days", "last_90_days", "this_month", "previous_month"];
+
+  if (rawRange === "custom") return getCustomDateRange(from, to);
+  if (presets.includes(rawRange as DateRangePreset)) return getDateRange(rawRange as DateRangePreset);
+  return getDateRange("last_30_days");
+}
+
+function valueOf(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
 }
 
 export function isWithinRange(iso: string | null | undefined, range: Pick<DateRange, "from" | "to">) {

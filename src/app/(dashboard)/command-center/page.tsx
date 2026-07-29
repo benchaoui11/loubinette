@@ -6,6 +6,7 @@ import { UnavailablePanel } from "@/components/analytics/unavailable-panel";
 import { VisitorsTable } from "@/components/traffic/visitors-table";
 import { EmptyState } from "@/components/shared/empty-state";
 import { AttributionSummaryTable } from "@/components/sites/attribution-summary";
+import { readSelectedDateRange } from "@/lib/analytics/date-ranges";
 import { getReadOnlyDashboardData } from "@/lib/database/firstidp-readonly";
 import { readSelectedSiteId, siteSelectionLabel } from "@/lib/sites/site-config";
 import { formatCurrency, formatNumber, formatPercent } from "@/lib/utils/format";
@@ -16,7 +17,8 @@ export const metadata = {
 
 export default async function CommandCenterPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const siteId = await readSelectedSiteId(searchParams);
-  const data = await getReadOnlyDashboardData("last_30_days", siteId);
+  const range = await readSelectedDateRange(searchParams);
+  const data = await getReadOnlyDashboardData(range, siteId);
   const { metrics } = data;
   const selectedLabel = siteSelectionLabel(siteId);
 
@@ -81,14 +83,14 @@ export default async function CommandCenterPage({ searchParams }: { searchParams
         <div className="panel rounded-2xl p-5">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-semibold text-white">Applications by day</h2>
-            <span className="text-xs text-slate-500">Read-only</span>
+              <span className="text-xs text-slate-500">{range.label}</span>
           </div>
           <LineChart data={data.applicationsByDay} label="Applications" />
         </div>
         <div className="panel rounded-2xl p-5">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-semibold text-white">Visitors by day</h2>
-            <span className="text-xs text-slate-500">Legacy beacon</span>
+              <span className="text-xs text-slate-500">{range.label}</span>
           </div>
           <LineChart data={data.visitorsByDay} color="var(--chart-2)" label="Visitors" />
         </div>
@@ -99,7 +101,7 @@ export default async function CommandCenterPage({ searchParams }: { searchParams
       <section className="panel rounded-2xl p-5">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-semibold text-white">Recent applications</h2>
-          <span className="text-xs text-slate-500">Server-limited to latest 100</span>
+          <span className="text-xs text-slate-500">{range.label}</span>
         </div>
         {data.applications.length ? <ApplicationsTable applications={data.applications.slice(0, 8)} /> : <EmptyState title="No applications loaded" body="No application data is connected for this website selection." />}
       </section>

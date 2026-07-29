@@ -1,4 +1,5 @@
 import { EmptyState } from "@/components/shared/empty-state";
+import { readSelectedDateRange } from "@/lib/analytics/date-ranges";
 import { getLiveActivityData, type LiveActivityEvent } from "@/lib/database/live-activity";
 import { readSelectedSiteId, siteSelectionLabel } from "@/lib/sites/site-config";
 import { Activity, FileText, MousePointerClick, ToggleLeft } from "lucide-react";
@@ -31,15 +32,16 @@ function eventIcon(source: LiveActivityEvent["source"]) {
 }
 
 function eventTone(source: LiveActivityEvent["source"]) {
-  if (source === "applications") return "border-blue-300/30 bg-blue-400/10 text-blue-100";
-  if (source === "visitors") return "border-teal-300/30 bg-teal-400/10 text-teal-100";
-  return "border-amber-300/30 bg-amber-400/10 text-amber-100";
+  if (source === "applications") return "activity-applications";
+  if (source === "visitors") return "activity-visitors";
+  return "activity-switch";
 }
 
 export default async function LiveActivityPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const siteId = await readSelectedSiteId(searchParams);
+  const range = await readSelectedDateRange(searchParams);
   const selectedLabel = siteSelectionLabel(siteId);
-  const data = await getLiveActivityData(siteId);
+  const data = await getLiveActivityData(siteId, range);
 
   return (
     <div className="space-y-6">
@@ -47,7 +49,7 @@ export default async function LiveActivityPage({ searchParams }: { searchParams?
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-blue-200/70">Live Activity</p>
           <h1 className="text-3xl font-semibold tracking-tight text-white">Privacy-safe operations feed</h1>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">Recent application, visitor, and page-switch events for {selectedLabel}. No customer names, emails, document paths, signatures, uploads, or checkout details are shown.</p>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">Recent application, visitor, and page-switch events for {selectedLabel} during {range.label}. No customer names, emails, document paths, signatures, uploads, or checkout details are shown.</p>
         </div>
         <div className="rounded-xl border border-slate-600/40 bg-slate-900/70 px-4 py-3 text-sm text-slate-300">
           {data.connected ? "Read-only feed connected" : "Partial or unavailable feed"}
@@ -64,7 +66,7 @@ export default async function LiveActivityPage({ searchParams }: { searchParams?
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
             <h2 className="font-semibold text-white">Recent activity</h2>
-            <p className="mt-1 text-sm text-slate-400">Server-side read-only query, limited to the latest 20 events.</p>
+            <p className="mt-1 text-sm text-slate-400">Server-side read-only query, limited to the latest 20 events in the selected range.</p>
           </div>
           <Activity className="h-5 w-5 text-blue-200/70" aria-hidden="true" />
         </div>
@@ -75,7 +77,7 @@ export default async function LiveActivityPage({ searchParams }: { searchParams?
               {data.events.map((event) => (
                 <li key={event.id} className="grid gap-3 px-4 py-4 sm:grid-cols-[1fr_auto] sm:items-center">
                   <div className="flex min-w-0 items-center gap-3">
-                    <span className={`inline-flex h-9 w-9 flex-none items-center justify-center rounded-lg border ${eventTone(event.source)}`}>
+                    <span className={`activity-icon inline-flex h-9 w-9 flex-none items-center justify-center rounded-lg border ${eventTone(event.source)}`}>
                       {eventIcon(event.source)}
                     </span>
                     <div className="min-w-0">

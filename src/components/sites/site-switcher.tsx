@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Check, ChevronDown, Globe2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import {
   ALL_WEBSITES_ID,
   getEnabledFeatureLabels,
@@ -20,6 +21,7 @@ type SwitcherOption = {
 
 function buildHref(pathname: string, searchParams: URLSearchParams, siteId: string) {
   const params = new URLSearchParams(searchParams);
+  params.delete("highlight");
   if (siteId === ALL_WEBSITES_ID) {
     params.delete("site");
   } else {
@@ -33,6 +35,8 @@ function buildHref(pathname: string, searchParams: URLSearchParams, siteId: stri
 export function SiteSwitcher() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
   const selectedSiteId = searchParams.get("site") ?? ALL_WEBSITES_ID;
   const selectedLabel = siteSelectionLabel(selectedSiteId);
   const portfolioFeatures = Array.from(new Set(SITE_CONFIGS.flatMap(getEnabledFeatureLabels)));
@@ -54,21 +58,42 @@ export function SiteSwitcher() {
     })),
   ];
 
+  useEffect(() => {
+    if (!open) return;
+
+    function onPointerDown(event: PointerEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
   return (
-    <details className="group relative">
-      <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-slate-600/40 bg-slate-900/70 px-3 py-2 text-sm text-slate-200">
+    <div className="relative" ref={containerRef}>
+      <button className="cc-control flex items-center gap-2 rounded-lg px-3 py-2 text-sm" type="button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
         <Globe2 className="size-4 text-blue-200" />
         <span>{selectedLabel}</span>
-        <ChevronDown className="size-4 text-slate-500 group-open:rotate-180" />
-      </summary>
-      <div className="absolute left-0 top-full z-50 mt-2 w-[min(26rem,calc(100vw-2rem))] rounded-xl border border-slate-600/40 bg-slate-950 p-2 shadow-2xl">
+        <ChevronDown className={`size-4 text-slate-500 ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open ? <div className="cc-popover absolute left-0 top-full z-50 mt-2 w-[min(26rem,calc(100vw-2rem))] rounded-xl p-2" role="menu">
         {options.map((option) => {
           const selected = option.site_id === selectedSiteId || (option.site_id === ALL_WEBSITES_ID && selectedSiteId === ALL_WEBSITES_ID);
           return (
             <Link
               key={option.site_id}
               href={buildHref(pathname, searchParams, option.site_id)}
+              onClick={() => setOpen(false)}
               className="block rounded-lg px-3 py-3 hover:bg-white/[0.045]"
+              role="menuitem"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -92,7 +117,7 @@ export function SiteSwitcher() {
             </Link>
           );
         })}
-      </div>
-    </details>
+      </div> : null}
+    </div>
   );
 }

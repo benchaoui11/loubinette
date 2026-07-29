@@ -14,15 +14,15 @@ export function LineChart({ data, color = "var(--chart-1)", label }: { data: Tim
               <stop offset="100%" stopColor={color} stopOpacity={0} />
             </linearGradient>
           </defs>
-          <XAxis dataKey="date" tick={{ fill: "#73829a", fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={24} />
-          <YAxis tick={{ fill: "#73829a", fontSize: 11 }} tickLine={false} axisLine={false} width={36} allowDecimals={false} />
+          <XAxis dataKey="date" tick={{ fill: "var(--chart-axis)", fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={24} />
+          <YAxis tick={{ fill: "var(--chart-axis)", fontSize: 11 }} tickLine={false} axisLine={false} width={36} allowDecimals={false} />
           <Tooltip
-            cursor={{ stroke: "rgba(148, 163, 184, 0.22)" }}
+            cursor={{ stroke: "var(--chart-grid)" }}
             contentStyle={{
-              background: "#0b111c",
-              border: "1px solid rgba(148, 163, 184, 0.24)",
+              background: "var(--surface-control)",
+              border: "1px solid var(--border)",
               borderRadius: 10,
-              color: "#eef4ff",
+              color: "var(--text)",
             }}
           />
           <Area type="monotone" dataKey="current" name={label} stroke={color} strokeWidth={2} fill={`url(#gradient-${label.replace(/\s+/g, "-")})`} />

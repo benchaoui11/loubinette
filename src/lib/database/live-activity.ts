@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import type { DateRange } from "@/lib/analytics/date-ranges";
 import { canQueryProductionData, filterRowsForSite, rowMatchesAttribution } from "@/lib/sites/site-attribution";
 import { getConnectedDataSource, SITE_CONFIGS, siteSelectionLabel } from "@/lib/sites/site-config";
 
@@ -60,27 +61,32 @@ function makeEvent(row: Record<string, unknown>, source: ActivitySource): LiveAc
   };
 }
 
-async function readRows(table: ActivitySource, select: string, orderColumn: string): Promise<ReadResult> {
+async function readRows(table: ActivitySource, select: string, orderColumn: string, range?: DateRange): Promise<ReadResult> {
   const supabase = createSupabaseAdminClient();
   if (!supabase) return { data: null, error: { message: "Supabase server credentials are not configured." } };
 
-  const result = await supabase
+  let query = supabase
     .from(table)
     .select(select)
-    .order(orderColumn, { ascending: false })
-    .limit(ACTIVITY_LIMIT);
+    .order(orderColumn, { ascending: false });
+
+  if (range) {
+    query = query.gte(orderColumn, range.from.toISOString()).lte(orderColumn, range.to.toISOString());
+  }
+
+  const result = await query.limit(ACTIVITY_LIMIT);
 
   return result as ReadResult;
 }
 
-async function readSwitchLogRows(): Promise<ReadResult> {
-  const result = await readRows("switch_log", "id, site_id, changed_at", "changed_at");
+async function readSwitchLogRows(range?: DateRange): Promise<ReadResult> {
+  const result = await readRows("switch_log", "id, site_id, changed_at", "changed_at", range);
   if (!result.error?.message || !/site_id/i.test(result.error.message)) return result;
 
-  return readRows("switch_log", "id, changed_at", "changed_at");
+  return readRows("switch_log", "id, changed_at", "changed_at", range);
 }
 
-export async function getLiveActivityData(siteId?: string | null): Promise<LiveActivityData> {
+export async function getLiveActivityData(siteId?: string | null, range?: DateRange): Promise<LiveActivityData> {
   const dataSource = getConnectedDataSource(siteId);
 
   if (!canQueryProductionData(siteId)) {
@@ -100,9 +106,9 @@ export async function getLiveActivityData(siteId?: string | null): Promise<LiveA
   }
 
   const [applicationsResult, visitorsResult, switchLogResult] = await Promise.all([
-    readRows("applications", "id, site_id, created_at", "created_at"),
-    readRows("visitors", "id, site_id, created_at", "created_at"),
-    readSwitchLogRows(),
+    readRows("applications", "id, site_id, created_at", "created_at", range),
+    readRows("visitors", "id, site_id, created_at", "created_at", range),
+    readSwitchLogRows(range),
   ]);
 
   const errors = [applicationsResult.error, visitorsResult.error, switchLogResult.error]

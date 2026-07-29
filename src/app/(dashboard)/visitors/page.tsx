@@ -1,5 +1,6 @@
 import { EmptyState } from "@/components/shared/empty-state";
 import { VisitorsTable } from "@/components/traffic/visitors-table";
+import { readSelectedDateRange } from "@/lib/analytics/date-ranges";
 import { getReadOnlyDashboardData } from "@/lib/database/firstidp-readonly";
 import { readSelectedSiteId } from "@/lib/sites/site-config";
 
@@ -7,7 +8,8 @@ export const metadata = { title: "Visitors" };
 
 export default async function VisitorsPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const siteId = await readSelectedSiteId(searchParams);
-  const data = await getReadOnlyDashboardData("last_30_days", siteId);
+  const range = await readSelectedDateRange(searchParams);
+  const data = await getReadOnlyDashboardData(range, siteId);
   return (
     <div className="space-y-5">
       <div>

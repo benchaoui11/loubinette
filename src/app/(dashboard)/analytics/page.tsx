@@ -1,5 +1,6 @@
 import { LineChart } from "@/components/charts/line-chart";
 import { UnavailablePanel } from "@/components/analytics/unavailable-panel";
+import { readSelectedDateRange } from "@/lib/analytics/date-ranges";
 import { getReadOnlyDashboardData } from "@/lib/database/firstidp-readonly";
 import { readSelectedSiteId } from "@/lib/sites/site-config";
 import { formatCurrency } from "@/lib/utils/format";
@@ -8,13 +9,14 @@ export const metadata = { title: "Analytics" };
 
 export default async function AnalyticsPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const siteId = await readSelectedSiteId(searchParams);
-  const data = await getReadOnlyDashboardData("last_30_days", siteId);
+  const range = await readSelectedDateRange(searchParams);
+  const data = await getReadOnlyDashboardData(range, siteId);
   return (
     <div className="space-y-5">
       <div>
         <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-blue-200/70">Analytics</p>
         <h1 className="text-3xl font-semibold tracking-tight text-white">Day-by-day operating analytics</h1>
-        <p className="mt-2 max-w-2xl text-sm text-slate-400">Server-side loaded, date-bounded, and intentionally honest about unavailable historical attribution and payment data.</p>
+        <p className="mt-2 max-w-2xl text-sm text-slate-400">Server-side loaded for {range.label}, date-bounded, and intentionally honest about unavailable historical attribution and payment data.</p>
       </div>
       <div className="grid gap-4 xl:grid-cols-2">
         <section className="panel rounded-2xl p-5">

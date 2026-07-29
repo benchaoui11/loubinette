@@ -1,4 +1,4 @@
-import { getDateRange, type DateRangePreset } from "@/lib/analytics/date-ranges";
+import { getDateRange, isWithinRange, type DateRange, type DateRangePreset } from "@/lib/analytics/date-ranges";
 import { calculateMetrics, seriesByDay, statusBreakdown } from "@/lib/analytics/metrics";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { buildAttributionSummary, canQueryProductionData, filterRowsForSite } from "@/lib/sites/site-attribution";
@@ -16,8 +16,8 @@ const DOCUMENT_FIELDS: { type: DocumentFileField; label: string }[] = [
   { type: "file_signature", label: "Signature" },
 ];
 
-const APPLICATION_SELECT_WITH_SITE_ID = "id, site_id, ref, order_number, status, format, validity_years, destination_country, total, currency, first_name, last_name, email, phone, group_ref, is_companion, file_selfie, file_license_front, file_license_back, file_signature, created_at";
-const APPLICATION_SELECT_LEGACY = "id, ref, order_number, status, format, validity_years, destination_country, total, currency, first_name, last_name, email, phone, group_ref, is_companion, file_selfie, file_license_front, file_license_back, file_signature, created_at";
+const APPLICATION_SELECT_WITH_SITE_ID = "id, site_id, ref, order_number, status, format, validity_years, destination_country, total, currency, first_name, last_name, email, phone, vip_processing, group_ref, is_companion, file_selfie, file_license_front, file_license_back, file_signature, created_at";
+const APPLICATION_SELECT_LEGACY = "id, ref, order_number, status, format, validity_years, destination_country, total, currency, first_name, last_name, email, phone, vip_processing, group_ref, is_companion, file_selfie, file_license_front, file_license_back, file_signature, created_at";
 const VISITOR_SELECT_WITH_SITE_ID = "id, site_id, created_at, session_id, site_mode_at_visit, country, browser, os, device, referrer, landing_page";
 const VISITOR_SELECT_LEGACY = "id, created_at, session_id, site_mode_at_visit, country, browser, os, device, referrer, landing_page";
 
@@ -59,6 +59,7 @@ function normalizeApplication(row: Record<string, unknown>): FirstIdpApplication
     last_name: stringOrNull(row.last_name),
     email: stringOrNull(row.email),
     phone: stringOrNull(row.phone),
+    vip_processing: row.vip_processing == null ? null : Boolean(row.vip_processing),
     group_ref: stringOrNull(row.group_ref),
     is_companion: Boolean(row.is_companion),
     file_selfie: stringOrNull(row.file_selfie),
@@ -99,8 +100,8 @@ function isMissingSiteIdColumn(error: { message?: string } | null | undefined) {
   return Boolean(error?.message && /site_id/i.test(error.message));
 }
 
-export async function getReadOnlyDashboardData(preset: DateRangePreset = "last_30_days", siteId?: string | null): Promise<ReadOnlyDashboardData> {
-  const range = getDateRange(preset);
+export async function getReadOnlyDashboardData(presetOrRange: DateRangePreset | DateRange = "last_30_days", siteId?: string | null): Promise<ReadOnlyDashboardData> {
+  const range = typeof presetOrRange === "string" ? getDateRange(presetOrRange) : presetOrRange;
   const dataSource = getConnectedDataSource(siteId);
 
   if (!canQueryProductionData(siteId)) {
@@ -123,8 +124,10 @@ export async function getReadOnlyDashboardData(preset: DateRangePreset = "last_3
     const result = await supabaseClient
       .from("applications")
       .select(select)
+      .gte("created_at", range.from.toISOString())
+      .lte("created_at", range.to.toISOString())
       .order("created_at", { ascending: false })
-      .limit(100);
+      .limit(500);
 
     return result as ReadResult;
   }
@@ -133,8 +136,10 @@ export async function getReadOnlyDashboardData(preset: DateRangePreset = "last_3
     const result = await supabaseClient
       .from("visitors")
       .select(select)
+      .gte("created_at", range.from.toISOString())
+      .lte("created_at", range.to.toISOString())
       .order("created_at", { ascending: false })
-      .limit(300);
+      .limit(1000);
 
     return result as ReadResult;
   }
@@ -158,8 +163,10 @@ export async function getReadOnlyDashboardData(preset: DateRangePreset = "last_3
 
   const allApplications = (applicationsResult.data ?? []).map((row) => normalizeApplication(row as Record<string, unknown>));
   const allVisitors = (visitorsResult.data ?? []).map((row) => normalizeVisitor(row as Record<string, unknown>));
-  const applications = filterRowsForSite(allApplications as unknown as Record<string, unknown>[], siteId) as unknown as FirstIdpApplication[];
-  const visitors = filterRowsForSite(allVisitors as unknown as Record<string, unknown>[], siteId) as unknown as VisitorRecord[];
+  const applications = (filterRowsForSite(allApplications as unknown as Record<string, unknown>[], siteId) as unknown as FirstIdpApplication[])
+    .filter((application) => isWithinRange(application.created_at, range));
+  const visitors = (filterRowsForSite(allVisitors as unknown as Record<string, unknown>[], siteId) as unknown as VisitorRecord[])
+    .filter((visitor) => isWithinRange(visitor.created_at, range));
   const metrics = calculateMetrics(applications, visitors, range);
 
   return {
