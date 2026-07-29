@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   FIRSTIDP_SITE_UUID,
+  WORLDIDP_SITE_UUID,
   getConnectedDataSource,
   getEnabledFeatureLabels,
   getSelectedSites,
@@ -56,9 +57,11 @@ describe("site configuration", () => {
     }
 
     const firstidp = SITE_CONFIGS.find((site) => site.site_id === "firstidp");
+    const worldidp = SITE_CONFIGS.find((site) => site.site_id === "worldidp");
     expect(firstidp?.attribution).toEqual({ field: "site_id", value: FIRSTIDP_SITE_UUID });
+    expect(worldidp?.attribution).toEqual({ field: "site_id", value: WORLDIDP_SITE_UUID });
 
-    for (const site of SITE_CONFIGS.filter((entry) => entry.site_id !== "firstidp")) {
+    for (const site of SITE_CONFIGS.filter((entry) => entry.status === "planned")) {
       expect(site.attribution, `${site.site_id}.attribution`).toBeNull();
     }
   });
@@ -96,7 +99,7 @@ describe("site configuration", () => {
 
   it("limits connected data sources to configured live sources", () => {
     expect(getConnectedDataSource("firstidp")).toBe("firstidp_legacy_supabase");
-    expect(getConnectedDataSource("worldidp")).toBeNull();
+    expect(getConnectedDataSource("worldidp")).toBe("firstidp_legacy_supabase");
     expect(getConnectedDataSource("applyidponline")).toBeNull();
     expect(getConnectedDataSource("all")).toBe("firstidp_legacy_supabase");
   });

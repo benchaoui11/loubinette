@@ -1,6 +1,7 @@
 import type { SiteStatus } from "@/types/firstidp";
 
 export const FIRSTIDP_SITE_UUID = "f1f5c0de-0001-4b44-8a1d-000000000001";
+export const WORLDIDP_SITE_UUID = "f1f5c0de-0002-4b44-8a1d-000000000002";
 
 export type SiteFeatureKey =
   | "has_white_page"
@@ -79,8 +80,8 @@ export const SITE_CONFIGS = [
     has_orders: false,
     has_applications: true,
     analytics_enabled: true,
-    data_source: null,
-    attribution: null,
+    data_source: "firstidp_legacy_supabase",
+    attribution: { field: "site_id", value: WORLDIDP_SITE_UUID },
   },
   {
     site_id: "applyinternationaldrivingpermit",
